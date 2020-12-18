@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <MvcApiGenerator_BootAssemblyPath>..\02-Advanced.Plugin\bin\Debug\netstandard2.0\02-Advanced.Plugin.dll</MvcApiGenerator_BootAssemblyPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <CompilerVisibleProperty Include="MvcApiGenerator_BootAssemblyPath" />
+  </ItemGroup>
+</Project>
