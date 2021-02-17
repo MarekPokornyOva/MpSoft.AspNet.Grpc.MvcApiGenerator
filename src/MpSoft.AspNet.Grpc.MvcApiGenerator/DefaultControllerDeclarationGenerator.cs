@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using MpSoft.AspNet.Grpc.MvcApiGenerator.Runtime;
 using System;
 using System.CodeDom;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 #endregion using
@@ -16,8 +17,13 @@ namespace MpSoft.AspNet.Grpc.MvcApiGenerator
 		readonly static string _assemblyName = typeof(MvcApiAttribute).Assembly.GetName().Name;
 		readonly static string _mvcApiAttributeFullName = typeof(MvcApiAttribute).FullName;
 		readonly static string _mvcApiMethodAttributeFullName = typeof(MvcApiMethodAttribute).FullName;
-		internal static Func<TypeInfo,bool> EqualsMvcApiAttribute = ti => ti.ConvertedType.Equals(_mvcApiAttributeFullName,_assemblyName);
-		internal static Func<TypeInfo,bool> EqualsMvcApiMethodAttribute = ti => ti.ConvertedType.Equals(_mvcApiMethodAttributeFullName,_assemblyName);
+		readonly static string _authorizeAttributeAssemblyName = "Microsoft.AspNetCore.Authorization";
+		readonly static string _authorizeAttributeFullName = "Microsoft.AspNetCore.Authorization.AuthorizeAttribute";
+		readonly static string _allowAnonymousAttributeFullName = "Microsoft.AspNetCore.Authorization.AllowAnonymousAttribute";
+		readonly internal static Func<TypeInfo,bool> EqualsMvcApiAttribute = ti => ti.ConvertedType.Equals(_mvcApiAttributeFullName,_assemblyName);
+		readonly internal static Func<TypeInfo,bool> EqualsMvcApiMethodAttribute = ti => ti.ConvertedType.Equals(_mvcApiMethodAttributeFullName,_assemblyName);
+		readonly internal static Func<TypeInfo,bool> EqualsAuthorizeAttribute = ti => ti.ConvertedType.Equals(_authorizeAttributeFullName,_authorizeAttributeAssemblyName);
+		readonly internal static Func<TypeInfo,bool> EqualsAllowAnonymousAttribute = ti => ti.ConvertedType.Equals(_allowAnonymousAttributeFullName,_authorizeAttributeAssemblyName);
 
 		public virtual CodeNamespace Generate(ControllerDeclarationGeneratorContext context)
 		{
@@ -51,6 +57,10 @@ namespace MpSoft.AspNet.Grpc.MvcApiGenerator
 					typeDeclaration.BaseTypes.Add(aas.GetTypeTypeInfo().ToCodeTypeReference());
 			}
 			typeDeclaration.CustomAttributes.Add(new CodeAttributeDeclaration(new CodeTypeReference("Microsoft.AspNetCore.Mvc.ApiControllerAttribute")));
+
+			//transfer Authorize and AllowAnonymous attributes
+			TransferAttributes(attrs,EqualsAuthorizeAttribute,typeDeclaration,_ => new CodeTypeReference(_authorizeAttributeFullName));
+			TransferAttributes(attrs,EqualsAllowAnonymousAttribute,typeDeclaration,_ => new CodeTypeReference(_allowAnonymousAttributeFullName));
 
 			PreprocessedAttributeSyntax[] mvcApiMethodAttributes = attrs.Where(x => EqualsMvcApiMethodAttribute(x.TypeInfo)).ToArray();
 			typeDeclaration.Members.AddRange(grpcService.Members.OfType<MethodDeclarationSyntax>()
@@ -91,6 +101,12 @@ namespace MpSoft.AspNet.Grpc.MvcApiGenerator
 				.Select(parameterSyntax => { ITypeSymbol convType = semanticModel.GetTypeInfo(parameterSyntax.Type).ConvertedType; return (parameterSyntax, parameterSyntax.Identifier.ToString(), convType, convType.Equals("Grpc.Core.ServerCallContext","Grpc.Core.Api")); })
 				.ToArray();
 			methodDeclaration.Parameters.AddRange(parameterInfos.Where(x=>!x.IsCtx).Select(p => GenerateParameterDeclaration(p.Name,p.Type)).ToArray());
+
+
+			//transfer Authorize and AllowAnonymous attributes
+			PreprocessedAttributeSyntax[] attrs = methodDeclarationSyntax.AttributeLists.SelectMany(x => x.Attributes).Select(x => x.Preprocess(semanticModel)).ToArray();
+			TransferAttributes(attrs,EqualsAuthorizeAttribute,methodDeclaration,_ => new CodeTypeReference(_authorizeAttributeFullName));
+			TransferAttributes(attrs,EqualsAllowAnonymousAttribute,methodDeclaration,_ => new CodeTypeReference(_allowAnonymousAttributeFullName));
 
 			//method source code
 			//return _service.SayHello(request, _ctxFact.Create(base.HttpContext));
@@ -152,6 +168,20 @@ namespace MpSoft.AspNet.Grpc.MvcApiGenerator
 			}
 			return res.ToString();
 		}
+
+		static void TransferAttributes(IEnumerable<PreprocessedAttributeSyntax> attrs,Func<TypeInfo,bool> attrFilter,CodeTypeMember member,Func<PreprocessedAttributeSyntax,CodeTypeReference> attrTypeProvider)
+		{
+			foreach (PreprocessedAttributeSyntax attr in attrs)
+				if (attrFilter(attr.TypeInfo))
+				{
+					CodeAttributeArgument[] newArgs = attr.Arguments.Select(x =>
+					{
+						Optional<object> val = x.GetConstantValue();
+						return new CodeAttributeArgument(x.Name,new CodePrimitiveExpression(val.HasValue ? val.Value : null));
+					}).ToArray();
+					member.CustomAttributes.Add(new CodeAttributeDeclaration(attrTypeProvider(attr),newArgs));
+				}
+		}
 	}
 
 	static class TypeSymbolHelpers
@@ -186,7 +216,7 @@ namespace MpSoft.AspNet.Grpc.MvcApiGenerator
 		{
 			Syntax=syntax;
 			TypeInfo=semanticModel.GetTypeInfo(syntax);
-			Arguments =syntax.ArgumentList.Arguments.Select(x => new PreprocessedAttributeArgument(x,semanticModel)).ToArray();
+			Arguments=syntax.ArgumentList==null ? new PreprocessedAttributeArgument[0] : syntax.ArgumentList.Arguments.Select(x => new PreprocessedAttributeArgument(x,semanticModel)).ToArray();
 		}
 
 		internal AttributeSyntax Syntax { get; }

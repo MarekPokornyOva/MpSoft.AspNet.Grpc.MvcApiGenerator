@@ -9,6 +9,7 @@ namespace Simple
 {
 	[MvcApi(BaseType = typeof(Microsoft.AspNetCore.Mvc.ControllerBase))]
 	[MvcApiMethod(nameof(SayHello),HttpMethod = typeof(Microsoft.AspNetCore.Mvc.HttpPutAttribute),RouteTemplate = "api/"+nameof(GreeterService)+"/"+nameof(SayHello))]
+	[Microsoft.AspNetCore.Authorization.Authorize]
 	public class GreeterService:Greeter.GreeterBase
 	{
 		private readonly ILogger<GreeterService> _logger;
@@ -17,6 +18,7 @@ namespace Simple
 			_logger=logger;
 		}
 
+		[Microsoft.AspNetCore.Authorization.AllowAnonymous]
 		public override Task<HelloReply> SayHello(HelloRequest request,ServerCallContext context)
 		{
 			return Task.FromResult(new HelloReply

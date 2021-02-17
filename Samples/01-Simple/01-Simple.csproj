@@ -10,11 +10,11 @@
 
   <ItemGroup>
     <PackageReference Include="Grpc.AspNetCore" Version="2.27.0" />
-    <PackageReference Include="MpSoft.AspNet.Grpc.MvcApiGenerator" Version="1.0.0">
+    <PackageReference Include="MpSoft.AspNet.Grpc.MvcApiGenerator" Version="1.0.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="MpSoft.AspNet.Grpc.MvcApiGenerator.Runtime" Version="1.0.0" />
+    <PackageReference Include="MpSoft.AspNet.Grpc.MvcApiGenerator.Runtime" Version="1.0.1" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="5.6.3" />
   </ItemGroup>
 

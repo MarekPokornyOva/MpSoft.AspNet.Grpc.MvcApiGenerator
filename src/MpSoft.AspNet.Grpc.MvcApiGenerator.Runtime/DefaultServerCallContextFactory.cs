@@ -20,7 +20,12 @@ namespace MpSoft.AspNet.Grpc.MvcApiGenerator.Runtime
 		static readonly AuthContext UnauthenticatedContext = new AuthContext(null,new Dictionary<string,List<AuthProperty>>());
 
 		public ServerCallContext Create(HttpContext httpContext)
-			=> new HttpGrpcServerCallContext(httpContext);
+		{
+			HttpGrpcServerCallContext serverCallContext = new HttpGrpcServerCallContext(httpContext);
+			serverCallContext.UserState.Add("__HttpContext",httpContext);
+			httpContext.Features.Set(serverCallContext);
+			return serverCallContext;
+		}
 
 		class HttpGrpcServerCallContext:ServerCallContext
 		{
